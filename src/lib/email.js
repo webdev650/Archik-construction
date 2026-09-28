@@ -39,7 +39,7 @@ export async function sendEmail({ to, subject, html, text }) {
       if (!response.ok) {
         console.error('Resend API Error response:', resData);
         // If domain is not verified on Resend yet, attempt sending using Resend's onboarding domain for test deliveries
-        if (resData?.name === 'validation_error' || response.status === 403 || resData?.message?.includes('domain')) {
+        if (resData?.name === 'invalid_from_address' || resData?.message?.toLowerCase()?.includes('domain')) {
           console.warn('Sender domain unverified on Resend. Trying fallback onboarding@resend.dev...');
           const fallbackRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
