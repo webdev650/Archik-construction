@@ -267,7 +267,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-slate-800">Email Us</h4>
-                  <p className="text-slate-600">business@illusorydesignstudios.com</p>
+                  <p className="text-slate-600"><a href="mailto:info@archikconstruction.com" className="hover:underline">info@archikconstruction.com</a></p>
                 </div>
               </div>
 

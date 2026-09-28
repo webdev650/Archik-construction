@@ -139,7 +139,7 @@ export function SiteFooter() {
               </div>
 
               <div>📞 +91 95835 30095</div>
-              <div>✉️ business@illusorydesignstudios.com</div>
+              <div>✉️ <a href="mailto:info@archikconstruction.com" className="hover:underline">info@archikconstruction.com</a></div>
             </div>
           </div>
         </div>

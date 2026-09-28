@@ -9,6 +9,7 @@ export async function POST(request) {
   try {
     console.log('Forgot password API called')
     console.log('Environment check:', {
+      hasResendApiKey: !!process.env.RESEND_API_KEY,
       hasSmtpHost: !!process.env.SMTP_HOST,
       hasSmtpUser: !!process.env.SMTP_USER,
       hasSmtpPass: !!process.env.SMTP_PASS,

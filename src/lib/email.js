@@ -1,29 +1,91 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, // true for 465, false for other ports
+  host: process.env.SMTP_HOST || 'smtp.resend.com',
+  port: parseInt(process.env.SMTP_PORT || '465'),
+  secure: process.env.SMTP_PORT === '465' || process.env.SMTP_SECURE === 'true',
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER || 'resend',
+    pass: process.env.SMTP_PASS || process.env.RESEND_API_KEY,
   },
 });
 
 export async function sendEmail({ to, subject, html, text }) {
+  const resendApiKey = process.env.RESEND_API_KEY || (process.env.SMTP_PASS?.startsWith('re_') ? process.env.SMTP_PASS : null);
+  const senderEmail = process.env.SENDER_EMAIL || process.env.RESEND_FROM_EMAIL || 'info@archikconstruction.com';
+
+  if (resendApiKey && resendApiKey.startsWith('re_')) {
+    try {
+      const recipients = Array.isArray(to) ? to : [to];
+      const fromAddress = `"Archik Constructions" <${senderEmail}>`;
+
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromAddress,
+          to: recipients,
+          subject,
+          html,
+          text,
+        }),
+      });
+
+      const resData = await response.json();
+
+      if (!response.ok) {
+        console.error('Resend API Error response:', resData);
+        // If domain is not verified on Resend yet, attempt sending using Resend's onboarding domain for test deliveries
+        if (resData?.name === 'validation_error' || response.status === 403 || resData?.message?.includes('domain')) {
+          console.warn('Sender domain unverified on Resend. Trying fallback onboarding@resend.dev...');
+          const fallbackRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: 'Archik Constructions <onboarding@resend.dev>',
+              to: recipients,
+              subject,
+              html,
+              text,
+            }),
+          });
+          const fallbackData = await fallbackRes.json();
+          if (fallbackRes.ok) {
+            console.log('Email sent via Resend API (onboarding domain): %s', fallbackData.id);
+            return { success: true, messageId: fallbackData.id };
+          }
+        }
+        return { success: false, error: resData.message || resData.error || 'Failed to send email via Resend API' };
+      }
+
+      console.log('Email sent via Resend API: %s', resData.id);
+      return { success: true, messageId: resData.id };
+    } catch (error) {
+      console.error('Error sending email via Resend API:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Fallback to Nodemailer if RESEND_API_KEY is not defined
   try {
     const info = await transporter.sendMail({
-      from: `"Archik Constructions" <${process.env.SMTP_USER}>`,
+      from: `"Archik Constructions" <${senderEmail}>`,
       to,
       subject,
       text,
       html,
     });
 
-    console.log('Email sent: %s', info.messageId);
+    console.log('Email sent via Nodemailer: %s', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('Error sending email via Nodemailer:', error);
     return { success: false, error: error.message };
   }
 }
@@ -46,9 +108,10 @@ export async function sendEmailToMultiple({ recipients, subject, html, text }) {
 
 // Get admin emails from environment variable
 export function getAdminEmails() {
-  const adminEmails = process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '';
+  const adminEmails = process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || process.env.SENDER_EMAIL || 'info@archikconstruction.com';
   return adminEmails.split(',').map(email => email.trim()).filter(email => email);
 }
+
 
 // Email templates
 export const emailTemplates = {
